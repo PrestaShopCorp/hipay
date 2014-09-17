@@ -34,7 +34,7 @@ class Hipay extends PaymentModule
 {
 	private $arrayCategories;
 	private $env = PROD;
-	
+
 	protected $ws_client = false;
 
 	const WS_SERVER = 'http://api.prestashop.com/';
@@ -44,7 +44,7 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = '1.6.5';
+		$this->version = '1.6.6';
 		$this->module_key = 'e25bc8f4f9296ef084abf448bca4808a';
 
 		$this->currencies = true;
@@ -52,7 +52,7 @@ class Hipay extends PaymentModule
 		$this->author = 'PrestaShop';
 
 		parent::__construct();
-		
+
 		$this->displayName = 'HiPay';
 		$this->description = $this->l('Secure payement with Visa, Mastercard and European solutions.');
 
@@ -62,7 +62,7 @@ class Hipay extends PaymentModule
 			LEFT JOIN '._DB_PREFIX_.'zone as z
 			ON z.id_zone = c.id_zone
 			WHERE ';
-		
+
 		$result = Db::getInstance()->ExecuteS($request.$this->getRequestZones());
 
 		foreach ($result as $num => $iso)
@@ -71,19 +71,19 @@ class Hipay extends PaymentModule
 		if ($this->id)
 		{
 			// Define extracted from mapi/mapi_defs.php
-			if (!defined('HIPAY_GATEWAY_URL')) 
+			if (!defined('HIPAY_GATEWAY_URL'))
 				define('HIPAY_GATEWAY_URL','https://'.($this->env ? '' : 'test.').'payment.hipay.com/order/');
 		}
 
 		/** Backward compatibility */
 		require(_PS_MODULE_DIR_.'hipay/backward_compatibility/backward.php');
-		
+
 		if (!class_exists('SoapClient'))
 			$this->warning .= $this->l('To work properly the module need the Soap library to be installed.');
 		else
 			$this->ws_client = $this->getWsClient();
 	}
-	
+
 	public function install()
 	{
 		Configuration::updateValue('HIPAY_SALT', uniqid());
@@ -92,23 +92,23 @@ class Hipay extends PaymentModule
 			Configuration::updateValue('HIPAY_UNIQID', uniqid());
 		if (!Configuration::get('HIPAY_RATING'))
 			Configuration::updateValue('HIPAY_RATING', 'ALL');
-		
+
 		if (!(parent::install() && $this->registerHook('payment') && $this->registerHook('paymentReturn') && $this->_createAuthorizationOrderState()))
 			return false;
-		
+
 		$result = Db::getInstance()->ExecuteS('
 			SELECT `id_zone`, `name`
 			FROM `'._DB_PREFIX_.'zone`
 			WHERE `active` = 1
 		');
-		
+
 		foreach ($result as $rowNumber => $rowValues)
 		{
 			Configuration::deleteByName('HIPAY_AZ_'.$rowValues['id_zone']);
 			Configuration::deleteByName('HIPAY_AZ_ALL_'.$rowValues['id_zone']);
 		}
 		Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'module_country` WHERE `id_module` = '.(int)$this->id);
-			
+
 		return true;
 	}
 
@@ -142,7 +142,7 @@ class Hipay extends PaymentModule
 
 	/**
 	 * Set shipping zone search
-	 * 
+	 *
 	 * @param	string $searchField = 'z.id_zone'
 	 * @param	int $defaultZone = 1
 	 * @return	string
@@ -154,27 +154,27 @@ class Hipay extends PaymentModule
 			FROM `'._DB_PREFIX_.'zone`
 			WHERE `active` = 1
 		');
-		
+
 		$tmp = null;
 		foreach ($result as $rowNumber => $rowValues)
 			if (strcmp(Configuration::get('HIPAY_AZ_'.$rowValues['id_zone']), 'ok') == 0)
 				$tmp .= $searchField.' = '.$rowValues['id_zone'].' OR ';
-		
+
 		if ($tmp == null)
 			$tmp = $searchField.' = '.$defaultZone;
 		else
 			$tmp = substr($tmp, 0, strlen($tmp) - strlen(' OR '));
-			
+
 		return $tmp;
 	}
-	
+
 	public function hookPaymentReturn()
 	{
 		if (!$this->active)
 			return null;
 		return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'confirmation.tpl');
 	}
-	
+
 	public function hookPayment($params)
 	{
 		global $smarty, $cart;
@@ -184,7 +184,7 @@ class Hipay extends PaymentModule
 		$hipayPassword = Configuration::get('HIPAY_PASSWORD_'.$currency->iso_code);
 		$hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency->iso_code);
 		$hipayCategory = Configuration::get('HIPAY_CATEGORY_'.$currency->iso_code);
-		
+
 		$logo_suffix = strtoupper(Configuration::get('HIPAY_PAYMENT_BUTTON'));
 		if (!in_array($logo_suffix, array('DE', 'FR', 'GB', 'BE', 'ES', 'IT', 'NL', 'PT', 'BR')))
 			$logo_suffix = 'DEFAULT';
@@ -209,15 +209,15 @@ class Hipay extends PaymentModule
 	private function getModuleCurrency($cart)
 	{
 		$id_currency = (int)self::MysqlGetValue('SELECT id_currency FROM `'._DB_PREFIX_.'module_currency` WHERE id_module = '.(int)$this->id);
-		
+
 		if (!$id_currency OR $id_currency == -2)
 			$id_currency = Configuration::get('PS_CURRENCY_DEFAULT');
 		elseif ($id_currency == -1)
 			$id_currency = $cart->id_currency;
-			
+
 		return $id_currency;
 	}
-	
+
 	private function formatLanguageCode($language_code)
 	{
 		$languageCodeArray = preg_split('/-|_/', $language_code);
@@ -238,13 +238,13 @@ class Hipay extends PaymentModule
 		if ($cart->id_currency != $id_currency)
 			if (Db::getInstance()->execute('UPDATE '._DB_PREFIX_.'cart SET id_currency = '.(int)$id_currency.' WHERE id_cart = '.(int)$cart->id))
 				$cart->id_currency = $id_currency;
-		
+
 		$currency = new Currency($id_currency);
 		$language = new Language($cart->id_lang);
 		$customer = new Customer($cart->id_customer);
-		
+
 		require_once(dirname(__FILE__).'/mapi/mapi_package.php');
-		
+
 		$hipayAccount = Configuration::get('HIPAY_ACCOUNT_'.$currency->iso_code);
 		$hipayPassword = Configuration::get('HIPAY_PASSWORD_'.$currency->iso_code);
 		$hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency->iso_code);
@@ -253,7 +253,7 @@ class Hipay extends PaymentModule
 		$paymentParams = new HIPAY_MAPI_PaymentParams();
 		$paymentParams->setLogin($hipayAccount, $hipayPassword);
 		$paymentParams->setAccounts($hipayAccount, $hipayAccount);
-		// EN_us is not a standard format, but that's what Hipay uses 
+		// EN_us is not a standard format, but that's what Hipay uses
 		if (isset($language->language_code))
 			$paymentParams->setLocale($this->formatLanguageCode($language->language_code));
 		else
@@ -292,14 +292,14 @@ class Hipay extends PaymentModule
 		$item->setRef($cart->id);
 		$item->setCategory($hipaycategory);
 		$item->setPrice($cart->getOrderTotal());
-		
+
 		try {
 			if (!$item->check())
 				return $this->l('[Hipay] Error: cannot create "Cart" Product');
 		} catch (Exception $e) {
 			return $this->l('[Hipay] Error: cannot create "Cart" Product');
 		}
-		
+
 		$items = array($item);
 
 		$order = new HIPAY_MAPI_Order();
@@ -350,7 +350,7 @@ class Hipay extends PaymentModule
 
 		if (_PS_MAGIC_QUOTES_GPC_)
 			$_POST['xml'] = stripslashes($_POST['xml']);
-		
+
 		require_once(dirname(__FILE__).'/mapi/mapi_package.php');
 
 		if (HIPAY_MAPI_COMM_XML::analyzeNotificationXML($_POST['xml'], $operation, $status, $date, $time, $transid, $amount, $currency, $id_cart, $data) === false)
@@ -358,10 +358,10 @@ class Hipay extends PaymentModule
 			file_put_contents('logs'.Configuration::get('HIPAY_UNIQID').'.txt', '['.date('Y-m-d H:i:s').'] Analysis error: '.htmlentities($_POST['xml'])."\n", FILE_APPEND);
 			return false;
 		}
-		
+
 		if (version_compare(_PS_VERSION_, '1.5.0.0', '>='))
 			Context::getContext()->cart = new Cart((int)$id_cart);
-		
+
 		$cart = new Cart((int)$id_cart);
 		if (Tools::encrypt($cart->id.$cart->secure_key.Configuration::get('HIPAY_SALT')) != Tools::getValue('token'))
 			file_put_contents('logs'.Configuration::get('HIPAY_UNIQID').'.txt', '['.date('Y-m-d H:i:s').'] Token error: '.htmlentities($_POST['xml'])."\n", FILE_APPEND);
@@ -413,16 +413,16 @@ class Hipay extends PaymentModule
 					}
 				}
 			}
-			elseif (trim($operation) == 'refund' && trim(strtolower($status)) == 'ok')
+			elseif (trim($operation) == 'refund' AND trim(strtolower($status)) == 'ok')
 			{
 				/* Paiement remboursé sur Hipay */
 				if (!($id_order = Order::getOrderByCartId((int)($id_cart))))
 					die(Tools::displayError());
-					
+
 				$order = new Order((int)($id_order));
 				if (!$order->valid OR $order->getCurrentState() === Configuration::get('PS_OS_REFUND'))
 					die(Tools::displayError());
-					
+
 				$orderHistory = new OrderHistory();
 				$orderHistory->id_order = (int)($order->id);
 				$orderHistory->changeIdOrderState((int)(Configuration::get('PS_OS_REFUND')), (int)($id_order));
@@ -433,29 +433,29 @@ class Hipay extends PaymentModule
 
 	/**
 	 * Uninstall and clean the module settings
-	 * 
+	 *
 	 * @return	bool
 	 */
 	public function uninstall()
 	{
 		parent::uninstall();
-		
+
 		$result = Db::getInstance()->ExecuteS('
 			SELECT `id_zone`, `name`
 			FROM `'._DB_PREFIX_.'zone`
 			WHERE `active` = 1
 		');
-		
+
 		foreach ($result as $rowValues)
 		{
 			Configuration::deleteByName('HIPAY_AZ_'.$rowValues['id_zone']);
 			Configuration::deleteByName('HIPAY_AZ_ALL_'.$rowValues['id_zone']);
 		}
 		Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'module_country` WHERE `id_module` = '.(int)$this->id);
-		
+
 		return (true);
 	}
-	
+
 	public function getContent()
 	{
 		global $currentIndex;
@@ -464,22 +464,22 @@ class Hipay extends PaymentModule
 		if ($currentIndex == '' && version_compare(_PS_VERSION_, '1.5.0.0', '>='))
 			$currentIndex = 'index.php?controller='.Tools::safeOutput(Tools::getValue('controller'));
 		$currencies = DB::getInstance()->ExecuteS('SELECT c.iso_code, c.name, c.sign FROM '._DB_PREFIX_.'currency c');
-		
-		if (Tools::isSubmit('submitHipayAZ')) 
+
+		if (Tools::isSubmit('submitHipayAZ'))
 		{
 			// Delete all configurated zones
 			foreach ($_POST as $key => $val)
 			{
-				if (strncmp($key, 'HIPAY_AZ_ALL_', strlen('HIPAY_AZ_ALL_')) == 0) 
+				if (strncmp($key, 'HIPAY_AZ_ALL_', strlen('HIPAY_AZ_ALL_')) == 0)
 				{
 					$id = substr($key, -(strlen($key) - strlen('HIPAY_AZ_ALL_')));
 					Configuration::updateValue('HIPAY_AZ_'.$id, 'ko');
 				}
 			}
 			Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'module_country` WHERE `id_module` = '.(int)$this->id);
-			
+
 			// Add the new configuration zones
-			foreach ($_POST as $key => $val) 
+			foreach ($_POST as $key => $val)
 			{
 				if (strncmp($key, 'HIPAY_AZ_', strlen('HIPAY_AZ_')) == 0)
 					Configuration::updateValue($key, 'ok');
@@ -489,11 +489,11 @@ class Hipay extends PaymentModule
 
 			foreach ($results as $rowValues)
 				Db::getInstance()->Execute('INSERT INTO '._DB_PREFIX_.'module_country VALUE('.(int)$this->id.', '.(version_compare(_PS_VERSION_, '1.5.0.0', '>=') ?  Context::getContext()->shop->id.',' : '').' '.(int)$rowValues['id_country'].')');
-			
+
 		}
 		elseif (Tools::isSubmit('submitHipay'))
 		{
-			
+
 			$accounts = array();
 			foreach ($currencies as $currency)
 			{
@@ -505,33 +505,33 @@ class Hipay extends PaymentModule
 				Configuration::updateValue('HIPAY_CATEGORY_'.$currency['iso_code'], Tools::getValue('HIPAY_CATEGORY_'.$currency['iso_code']));
 				Configuration::updateValue('HIPAY_ACCOUNT_'.$currency['iso_code'], Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code']));
 
-				if ($this->env && Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code']))
+				if ($this->env AND Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code']))
 					$accounts[Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code'])] = 1;
 			}
-			
+
 			$i = 1;
 			$dataSync = 'http://www.prestashop.com/modules/hipay.png?mode='.($this->env ? 'prod' : 'test');
 			foreach ($accounts as $account => $null)
 				$dataSync .= '&account'.($i++).'='.urlencode($account);
-			
+
 			Configuration::updateValue('HIPAY_RATING', Tools::getValue('HIPAY_RATING'));
-			
+
 			$warnings .= $this->displayConfirmation($this->l('Configuration updated').'<img src="'.$dataSync.'" style="float:right" />');
 		}
 		elseif (Tools::isSubmit('submitHipayPaymentButton'))
 		{
 			Configuration::updateValue('HIPAY_PAYMENT_BUTTON', Tools::getValue('payment_button'));
 		}
-		
+
 		// Check configuration
 		$allow_url_fopen = ini_get('allow_url_fopen');
 		$openssl = extension_loaded('openssl');
 		$curl = extension_loaded('curl');
-		$ping = ($allow_url_fopen && $openssl && $fd = fsockopen('payment.hipay.com', 443) && fclose($fd));
+		$ping = ($allow_url_fopen AND $openssl AND $fd = fsockopen('payment.hipay.com', 443) AND fclose($fd));
 		$online = (in_array(Tools::getRemoteAddr(), array('127.0.0.1', '::1')) ? false : true);
 		$categories = true;
 		$categoryRetrieval = true;
-		
+
 		foreach ($currencies as $currency)
 		{
 			$hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency['iso_code']);
@@ -542,7 +542,7 @@ class Hipay extends PaymentModule
 			if ((Configuration::get('HIPAY_SITEID_'.$currency['iso_code']) && !Configuration::get('HIPAY_CATEGORY_'.$currency['iso_code'])))
 				$categories = false;
 		}
-		
+
 		if (!$allow_url_fopen OR !$openssl OR !$curl OR !$ping OR !$categories OR !$categoryRetrieval OR !$online)
 		{
 			$warnings .= '
@@ -550,13 +550,13 @@ class Hipay extends PaymentModule
 				'.($allow_url_fopen ? '' : '<h3>'.$this->l('You are not allowed to open external URLs').'</h3>').'
 				'.($curl ? '' : '<h3>'.$this->l('cURL is not enabled').'</h3>').'
 				'.($openssl ? '' : '<h3>'.$this->l('OpenSSL is not enabled').'</h3>').'
-				'.(($allow_url_fopen && $openssl && !$ping) ? '<h3>'.$this->l('Cannot access payment gateway').' '.HIPAY_GATEWAY_URL.' ('.$this->l('check your firewall').')</h3>' : '').'
+				'.(($allow_url_fopen AND $openssl AND !$ping) ? '<h3>'.$this->l('Cannot access payment gateway').' '.HIPAY_GATEWAY_URL.' ('.$this->l('check your firewall').')</h3>' : '').'
 				'.($online ? '' : '<h3>'.$this->l('Your shop is not online').'</h3>').'
 				'.($categories ? '' : '<h3>'.$this->l('Hipay categories are not defined for each Site ID').'</h3>').'
 				'.($categoryRetrieval ? '' : '<h3>'.$this->l('Impossible to retrieve Hipay categories. Please refer to your error log for more details.').'</h3>').'
 			</div>';
 		}
-		
+
 		// Get subscription form value
 		$form_values = $this->getFormValues();
 
@@ -677,7 +677,7 @@ class Hipay extends PaymentModule
 				<td class="tab2">'.$this->l('Activate the Hipay solution in your Prestashop, it\'s free!').'</td>
 			</tr>
 			<tr><td></td><td>
-		
+
 		<form action="'.$link.'" method="post" style="padding-left:6px;">
 		<table id="hipay_table" cellspacing="0" cellpadding="0">
 			<tr>
@@ -711,7 +711,7 @@ class Hipay extends PaymentModule
 					<tr><td class="hipay_end">&nbsp;</td><td class="hipay_prod hipay_end">&nbsp;</td>';
 			$form .= '</tr>';
 		}
-		
+
 		$form .= '</table>
 				<hr class="clear" />
 				<label for="HIPAY_RATING">'.$this->l('Authorized age group').' :</label>
@@ -731,7 +731,7 @@ class Hipay extends PaymentModule
 				</td>
 			</tr>
 			<tr>
-				<td><img src="../modules/'.$this->name.'/3.png" alt="step 3" /></td> 
+				<td><img src="../modules/'.$this->name.'/3.png" alt="step 3" /></td>
 				<td class="tab2">'.$this->l('Choose a set of buttons for your shop Hipay').' :</td>
 			</tr>
 			<tr>
@@ -822,7 +822,7 @@ class Hipay extends PaymentModule
 		</fieldset>
 		<br />
 		';
-		
+
 		$form .= '
 		<fieldset>
 			<legend><img src="../modules/'.$this->name.'/logo.gif" /> '.$this->l('Zones restrictions').'</legend>
@@ -835,7 +835,7 @@ class Hipay extends PaymentModule
 						<th align="center"><img src="../modules/'.$this->name.'/logo.gif" /></th>
 					</tr>
 		';
-		
+
 		$result = Db::getInstance()->ExecuteS('
 			SELECT `id_zone`, `name`
 			FROM '._DB_PREFIX_.'zone
@@ -850,12 +850,12 @@ class Hipay extends PaymentModule
 			$chk = null;
 			if (Configuration::get('HIPAY_AZ_'.$rowValues['id_zone']) == 'ok')
 				$chk = "checked ";
-			
+
 			$form .= '<td align="center"><input type="checkbox" name="HIPAY_AZ_'.$rowValues['id_zone'].'" value="ok" '.$chk.'/>';
 			$form .= '<input type="hidden" name="HIPAY_AZ_ALL_'.$rowValues['id_zone'].'" value="ok" /></td>';
 			$form .= '</tr>';
 		}
-		
+
 		$form .= '
 				</table><br>
 				<input type="submit" name="submitHipayAZ" value="'.$this->l('Update zones').'" class="button" style="font-weight:bold;" />
@@ -889,7 +889,7 @@ class Hipay extends PaymentModule
 				}
 			}
 			switchHipayAccount('.(int)$this->env.');';
-		
+
 		if (class_exists('SoapClient'))
 		{
 			$form .= '
@@ -899,15 +899,15 @@ class Hipay extends PaymentModule
 				});
 			';
 		}
-		
+
 		$form .= '
 		</script>';
-		
+
 		if ($this->ws_client == false)
 			return $this->displayError('To work properly the module need the Soap library to be installed.').$form;
 		return $form;
 	}
-	
+
 	public static function getWsClient()
 	{
 		$ws_client = null;
@@ -925,57 +925,57 @@ class Hipay extends PaymentModule
 		}
 		return false;
 	}
-	
+
 	protected function getFormValues()
 	{
 		$values = array();
-		
+
 		if (Tools::isSubmit('email'))
 			$values['email'] = Tools::getValue('email');
 		else
 			$values['email'] = Configuration::get('PS_SHOP_EMAIL');
-		
+
 		if (Tools::isSubmit('firstname'))
 			$values['firstname'] = Tools::getValue('firstname');
 		else
 			$values['firstname'] = Context::getContext()->employee->firstname;
-		
+
 		if (Tools::isSubmit('lastname'))
 			$values['lastname'] = Tools::getValue('lastname');
 		else
 			$values['lastname'] = Context::getContext()->employee->lastname;
-			
+
 		$values['currency'] = Tools::getValue('currency');
-		
+
 		if (Tools::isSubmit('contact-email'))
 			$values['contact_email'] = Tools::getValue('contact-email');
 		else
 			$values['contact_email'] = Configuration::get('PS_SHOP_EMAIL');
-		
+
 		if (Tools::isSubmit('website-name'))
 			$values['website_name'] = Tools::getValue('website-name');
 		else
 			$values['website_name'] = Configuration::get('PS_SHOP_NAME');
-			
+
 		if (Tools::isSubmit('website-url'))
 			$values['website_url'] = Tools::getValue('website-url');
 		else
 			$values['website_url'] = Configuration::get('PS_SHOP_DOMAIN');
-			
+
 		$values['business_line'] = Tools::getValue('business-line');
-		
+
 		$values['password'] = Tools::getValue('website-password');
-		
+
 		return $values;
 	}
-	
+
 	protected function getBusinessLine()
 	{
 		try
 		{
 			$iso_lang = Context::getContext()->language->iso_code;
 			$format_language = $this->formatLanguageCode($iso_lang);
-			
+
 			if ($this->ws_client !== false)
 				$business_line = $this->ws_client->getBusinessLine($format_language);
 		}
@@ -988,7 +988,7 @@ class Hipay extends PaymentModule
 			return $business_line;
 		return array();
 	}
-	
+
 	protected function processAccountCreation(&$form_errors)
 	{
 		$form_values = $this->getFormValues();
@@ -1013,7 +1013,7 @@ class Hipay extends PaymentModule
 
 		// STEP 2: Account creation
 		try
-		{		
+		{
 			if ($this->ws_client !== false)
 				$return = $this->ws_client->createWithWebsite(
 					array(
@@ -1065,7 +1065,7 @@ class Hipay extends PaymentModule
 				foreach ($return['vars'] as $fieldtype)
 					if(isset($fields[$fieldtype]))
 						$fieldnames_error[] = $fields[$fieldtype];
-					
+
 				$form_errors = sprintf($this->l('Some fields are not correct. Please check the fields: %s'), implode(', ', $fieldnames_error));
 				return false;
 			}
@@ -1092,7 +1092,7 @@ class Hipay extends PaymentModule
 		}
 		return array();
 	}
-	
+
 	// Retro compatibility with 1.2.5
 	static private function MysqlGetValue($query)
 	{
