@@ -176,7 +176,7 @@ class Hipay extends PaymentModule
 		return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'confirmation.tpl');
 	}
 
-    public function isPaymentPossible($params)
+    public function isPaymentPossible()
     {
         $currency = new Currency($this->getModuleCurrency($this->context->cart));
         $hipayAccount = Configuration::get('HIPAY_ACCOUNT_'.$currency->iso_code);
@@ -218,7 +218,7 @@ class Hipay extends PaymentModule
 	{
         if ($this->isPaymentPossible())
         {
-			$logo = $this->_path ."hipay_eu.png";
+			$logo = $this->_path ."payment_button/EU.png";
 			return array(
 				'cta_text' => $this->l('Hipay'),
 				'logo' => $logo,
