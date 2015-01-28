@@ -46,6 +46,7 @@ class Hipay extends PaymentModule
 		$this->tab = 'payments_gateways';
 		$this->version = '1.6.6';
 		$this->module_key = 'e25bc8f4f9296ef084abf448bca4808a';
+		$this->is_eu_compatible = 1;
 
 		$this->currencies = true;
 		$this->currencies_mode = 'radio';
@@ -93,7 +94,7 @@ class Hipay extends PaymentModule
 		if (!Configuration::get('HIPAY_RATING'))
 			Configuration::updateValue('HIPAY_RATING', 'ALL');
 
-		if (!(parent::install() && $this->registerHook('payment') && $this->registerHook('paymentReturn') && $this->_createAuthorizationOrderState()))
+		if (!(parent::install() && $this->registerHook('payment') && $this->registerHook('displayPaymentEU') && $this->registerHook('paymentReturn') && $this->_createAuthorizationOrderState()))
 			return false;
 
 		$result = Db::getInstance()->ExecuteS('
@@ -175,22 +176,29 @@ class Hipay extends PaymentModule
 		return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'confirmation.tpl');
 	}
 
+    public function isPaymentPossible()
+    {
+        $currency = new Currency($this->getModuleCurrency($this->context->cart));
+        $hipayAccount = Configuration::get('HIPAY_ACCOUNT_'.$currency->iso_code);
+        $hipayPassword = Configuration::get('HIPAY_PASSWORD_'.$currency->iso_code);
+        $hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency->iso_code);
+        $hipayCategory = Configuration::get('HIPAY_CATEGORY_'.$currency->iso_code);
+
+        return $hipayAccount && $hipayPassword && $hipaySiteId
+        && $hipayCategory && Configuration::get('HIPAY_RATING')
+        && $this->context->cart->getOrderTotal() >= 2;
+    }
+
 	public function hookPayment($params)
 	{
 		global $smarty, $cart;
-
-		$currency = new Currency($this->getModuleCurrency($cart));
-		$hipayAccount = Configuration::get('HIPAY_ACCOUNT_'.$currency->iso_code);
-		$hipayPassword = Configuration::get('HIPAY_PASSWORD_'.$currency->iso_code);
-		$hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency->iso_code);
-		$hipayCategory = Configuration::get('HIPAY_CATEGORY_'.$currency->iso_code);
 
 		$logo_suffix = strtoupper(Configuration::get('HIPAY_PAYMENT_BUTTON'));
 		if (!in_array($logo_suffix, array('DE', 'FR', 'GB', 'BE', 'ES', 'IT', 'NL', 'PT', 'BR')))
 			$logo_suffix = 'DEFAULT';
 
-		if ($hipayAccount && $hipayPassword && $hipaySiteId && $hipayCategory && Configuration::get('HIPAY_RATING'))
-		{
+        if ($this->isPaymentPossible())
+        {
 			if (Tools::getIsset('hipay_error') && Tools::getValue('hipay_error') == 1)
 				if (version_compare(_PS_VERSION_, '1.5.0.0', '>='))
 					Context::getContext()->controller->errors[] = $this->l('An error has occurred during your payment, please try again.');
@@ -203,6 +211,19 @@ class Hipay extends PaymentModule
 				'redirection_url' => (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? Tools::getShopDomainSsl(true).__PS_BASE_URI__.'modules/'.$this->name.'/redirect.php' : Context::getContext()->link->getModuleLink('hipay', 'redirect'))
 			));
 			return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'payment.tpl');
+		}
+	}
+	
+	public function hookDisplayPaymentEU($params)
+	{
+        if ($this->isPaymentPossible())
+        {
+			$logo = $this->_path ."payment_button/EU.png";
+			return array(
+				'cta_text' => $this->l('Hipay'),
+				'logo' => $logo,
+				'action' => Tools::getShopDomainSsl(true).__PS_BASE_URI__.'modules/'.$this->name.'/redirect.php'
+			);
 		}
 	}
 
