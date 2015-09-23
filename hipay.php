@@ -44,7 +44,7 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = '1.6.6';
+		$this->version = '1.6.7';
 		$this->module_key = 'e25bc8f4f9296ef084abf448bca4808a';
 		$this->is_eu_compatible = 1;
 
@@ -213,7 +213,7 @@ class Hipay extends PaymentModule
 			return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'payment.tpl');
 		}
 	}
-	
+
 	public function hookDisplayPaymentEU($params)
 	{
         if ($this->isPaymentPossible())
