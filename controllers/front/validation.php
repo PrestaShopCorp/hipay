@@ -30,17 +30,6 @@
 
 class HipayValidationModuleFrontController extends ModuleFrontController
 {
-	/*public function postProcess()
-	{
-		$this->HipayLog(print_r($_POST,true));
-		$hipay = new HiPay();
-		if(method_exists ( $hipay, $validation ){
-			return $hipay->validation($_POST);
-		}else{
-			$this->HipayLog('marche pas');
-		}
-			
-	}*/
 	public $display_column_left = false;
 	
 	public function __construct()

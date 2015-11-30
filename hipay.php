@@ -234,9 +234,6 @@ class Hipay extends PaymentModule
         	Configuration::get('HIPAY_RATING'),
         	$this->context->cart->getOrderTotal() >= 2
         );
-        /*return $hipayAccount && $hipayPassword && $hipaySiteId
-        && $hipayCategory && Configuration::get('HIPAY_RATING')
-        && $this->context->cart->getOrderTotal() >= 2;*/
     }
 
 	public function hookPayment($params)
