@@ -42,7 +42,24 @@ class HipayValidationModuleFrontController extends ModuleFrontController
 	{
 		parent::initContent();
 		$hipay = Module::getInstanceByName('hipay');
-		if (Validate::isLoadedObject($hipay))
-			$hipay->validation();
+		if (Validate::isLoadedObject($hipay)){
+			if(method_exists ( $hipay, 'validation' )){
+				$hipay->validation();
+			}else{
+				$this->HipayLog('marche pas');
+			}
+		}
+
+			
+	}
+	
+	#
+	# Patch pour logger la validation.php - appel entre HiPay et Prestashopc
+	#
+	private function HipayLog($msg){
+        $fp = fopen(_PS_ROOT_DIR_.'/log/hipay/hipaylogs.txt','a+');
+        fseek($fp,SEEK_END);
+        fputs($fp,$msg);
+        fclose($fp);
 	}
 }

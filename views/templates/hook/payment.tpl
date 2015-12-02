@@ -22,7 +22,6 @@
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
 *}
-
 {if version_compare($smarty.const._PS_VERSION_, '1.6.0.0', '>=')}<div class="row"><div class="col-xs-12 {if !$hide_left_column && !$hide_right_column}col-md-6{else if !$hide_left_column || !$hide_right_column}col-md-8{else}col-md-12{/if}">{/if}
 <p class="payment_module hipay_payment_module">
 	{if $cart->getOrderTotal() < 2}

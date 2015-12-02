@@ -22,6 +22,18 @@
 *  @copyright  2007-2011 PrestaShop SA
 *  @license    http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
 *  International Registered Trademark & Property of PrestaShop SA
+*
+*  SUPPORT HIPAY <support@hipay.com> 
+* 	http://www.hipay.com
+*
+*  Bugfix sur la v1.6.9 (JPN): 
+*	- Erreur 500 sur la validation de commande
+* 	- Création d'un nouveau statut de commande "En attente de paiement HiPay"
+* 	- Gestion du callback authorization - waiting
+* 	- Transfert du logo de la boutique vers la page de paiement (seulement si le site est en HTTPS)
+* 	- Compatible Multiboutique
+*   - Supression d'appels de fonctions inutiles sur la validation
+*
 */
 
 if (!defined('_PS_VERSION_'))
@@ -29,6 +41,7 @@ if (!defined('_PS_VERSION_'))
 
 define('DEV', 0);
 define('PROD', 1);
+define('HIPAY_LOG', 0);
 
 class Hipay extends PaymentModule
 {
@@ -44,8 +57,8 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = '1.6.7';
-		$this->module_key = 'e25bc8f4f9296ef084abf448bca4808a';
+		$this->version = '1.6.9';
+		$this->module_key = 'ab188f639335535838c7ee492a2e89f8';
 		$this->is_eu_compatible = 1;
 
 		$this->currencies = true;
@@ -138,9 +151,37 @@ class Hipay extends PaymentModule
 			else
 				return false;
 		}
+		if (!Configuration::get('HIPAY_WAITINGPAYMENT_OS'))
+		{
+			$os = new OrderState();
+			$os->name = array();
+			foreach (Language::getLanguages(false) as $language)
+				if (Tools::strtolower($language['iso_code']) == 'fr')
+					$os->name[(int)$language['id_lang']] = 'En attente de paiement HiPay';
+				else
+					$os->name[(int)$language['id_lang']] = 'En attente de paiement HiPay';
+			$os->color = '#FAAC58';
+			$os->hidden = false;
+			$os->send_email = false;
+			$os->delivery = false;
+			$os->logable = false;
+			$os->invoice = false;
+			if ($os->add())
+			{
+				Configuration::updateValue('HIPAY_WAITINGPAYMENT_OS', $os->id);
+				copy(dirname(__FILE__).'/logo.gif', dirname(__FILE__).'/../../img/os/'.(int)$os->id.'.gif');
+			}
+			else{
+				$object->upgrade_detail['1.6.9'][] = 'Erreur sur la mise à jour du statut de commande - En attente de paiement HiPay.';
+				return false;
+			}
+		}
+		if (!Configuration::get('HIPAY_VERSION'))
+		{
+			Configuration::updateValue('HIPAY_VERSION', '1.6.9');
+		}
 		return true;
 	}
-
 	/**
 	 * Set shipping zone search
 	 *
@@ -184,9 +225,15 @@ class Hipay extends PaymentModule
         $hipaySiteId = Configuration::get('HIPAY_SITEID_'.$currency->iso_code);
         $hipayCategory = Configuration::get('HIPAY_CATEGORY_'.$currency->iso_code);
 
-        return $hipayAccount && $hipayPassword && $hipaySiteId
-        && $hipayCategory && Configuration::get('HIPAY_RATING')
-        && $this->context->cart->getOrderTotal() >= 2;
+        # Restructuration du return par Johan PROTIN (jprotin at hipay dot com)
+        return array(
+        	$hipayAccount,
+        	$hipayPassword,
+        	$hipaySiteId,
+        	$hipayCategory,
+        	Configuration::get('HIPAY_RATING'),
+        	$this->context->cart->getOrderTotal() >= 2
+        );
     }
 
 	public function hookPayment($params)
@@ -196,8 +243,9 @@ class Hipay extends PaymentModule
 		$logo_suffix = strtoupper(Configuration::get('HIPAY_PAYMENT_BUTTON'));
 		if (!in_array($logo_suffix, array('DE', 'FR', 'GB', 'BE', 'ES', 'IT', 'NL', 'PT', 'BR')))
 			$logo_suffix = 'DEFAULT';
-
-        if ($this->isPaymentPossible())
+		# Restructuration du return par Johan PROTIN (jprotin at hipay dot com)
+		$isPay = $this->isPaymentPossible();
+        if ($isPay[0] && $isPay[1] && $isPay[2] && $isPay[3] && $isPay[4] && $isPay[5])
         {
 			if (Tools::getIsset('hipay_error') && Tools::getValue('hipay_error') == 1)
 				if (version_compare(_PS_VERSION_, '1.5.0.0', '>='))
@@ -208,7 +256,7 @@ class Hipay extends PaymentModule
 			$smarty->assign('logo_suffix', $logo_suffix);
 			$smarty->assign(array(
 				'this_path' => $this->_path,
-				'redirection_url' => (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? Tools::getShopDomainSsl(true).__PS_BASE_URI__.'modules/'.$this->name.'/redirect.php' : Context::getContext()->link->getModuleLink('hipay', 'redirect'))
+				'redirection_url' => (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? Tools::getShopDomainSsl(true).__PS_BASE_URI__.'modules/'.$this->name.'/redirect.php' : Context::getContext()->link->getModuleLink('hipay', 'redirect')),
 			));
 			return $this->display(__FILE__, (version_compare(_PS_VERSION_, '1.5.0.0', '<') ? '/views/templates/hook/' : '') . 'payment.tpl');
 		}
@@ -216,7 +264,9 @@ class Hipay extends PaymentModule
 
 	public function hookDisplayPaymentEU($params)
 	{
-        if ($this->isPaymentPossible())
+        $isPay = $this->isPaymentPossible();
+
+        if ($isPay[0] && $isPay[1] && $isPay[2] && $isPay[3] && $isPay[4] && $isPay[5])
         {
 			$logo = $this->_path ."payment_button/EU.png";
 			return array(
@@ -249,6 +299,7 @@ class Hipay extends PaymentModule
 
 	public function payment()
 	{
+
 		if (!$this->active)
 			return;
 
@@ -293,6 +344,16 @@ class Hipay extends PaymentModule
 			$paymentParams->setUrlNok(Tools::getShopDomainSsl(true).__PS_BASE_URI__.'order.php?step=3&hipay_error=1');
 			$paymentParams->setUrlOk(Tools::getShopDomainSsl(true).__PS_BASE_URI__.'order-confirmation.php?id_cart='.(int)$cart->id.'&id_module='.(int)$this->id.'&key='.$customer->secure_key);
 			$paymentParams->setUrlAck(Tools::getShopDomainSsl(true).__PS_BASE_URI__.'modules/'.$this->name.'/validation.php?token='.Tools::encrypt($cart->id.$cart->secure_key.Configuration::get('HIPAY_SALT')));
+			#
+			# Patch transfert du logo vers la page de paiement
+			# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+			#
+			if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') { 
+				// Si le site utilise le protocol HTTPS alors on envoit l'URL avec HTTPS
+				$logo_url = Tools::getShopDomainSsl(true)._PS_IMG_.Configuration::get('PS_LOGO');
+				$paymentParams->setLogoUrl($logo_url);
+			} 
+			# ------------------------------------------------
 		}
 		else
 		{
@@ -300,6 +361,16 @@ class Hipay extends PaymentModule
 			$paymentParams->setUrlNok(Context::getContext()->link->getPageLink('order', null, null, array('step' => 3, 'hipay_error' => 1)));
 			$paymentParams->setUrlOk(Context::getContext()->link->getPageLink('order-confirmation', null, null, array('id_cart' => (int)$cart->id, 'id_module' => (int)$this->id, 'key' => $customer->secure_key)));
 			$paymentParams->setUrlAck(Context::getContext()->link->getModuleLink('hipay', 'validation', array('token' => Tools::encrypt($cart->id.$cart->secure_key.Configuration::get('HIPAY_SALT')))));
+			#
+			# Patch transfert du logo vers la page de paiement
+			# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+			#
+			if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
+				// Si le site utilise le protocol HTTPS alors on envoit l'URL avec HTTPS
+				$logo_url = $this->context->link->getMediaLink(_PS_IMG_.Configuration::get('PS_LOGO'));
+				$paymentParams->setLogoUrl($logo_url);
+			}
+			# ------------------------------------------------
 		}
 		$paymentParams->setBackgroundColor('#FFFFFF');
 
@@ -363,9 +434,19 @@ class Hipay extends PaymentModule
 	}
 
 	public function validation()
-	{
+	{		
+		# LOG
+		$message = '######################################'."\r\n";
+		$message .= '# Date Début Validation - ' . date("d/m/Y H:i:s") ."\r\n";
+		$message .= '#### Module actif - ' . ($this->active ? 'TRUE':'FALSE')."\r\n";
+		$message .= '#### Variable POST :'."\r\n";
+		$message .= print_r($_POST, true);
+		$message .= "\r\n";
+		# ---
+		$this->HipayLog($message);
 		if (!$this->active)
 			return;
+
 		if (!array_key_exists('xml', $_POST))
 			return;
 
@@ -374,63 +455,179 @@ class Hipay extends PaymentModule
 
 		require_once(dirname(__FILE__).'/mapi/mapi_package.php');
 
+		# LOG
+		$this->HipayLog('#### Début HIPAY_MAPI_COMM_XML::analyzeNotificationXML'."\r\n");
+		# ---
+
 		if (HIPAY_MAPI_COMM_XML::analyzeNotificationXML($_POST['xml'], $operation, $status, $date, $time, $transid, $amount, $currency, $id_cart, $data) === false)
 		{
 			file_put_contents('logs'.Configuration::get('HIPAY_UNIQID').'.txt', '['.date('Y-m-d H:i:s').'] Analysis error: '.htmlentities($_POST['xml'])."\n", FILE_APPEND);
 			return false;
 		}
 
+		# LOG
+		$message = '#### Fin HIPAY_MAPI_COMM_XML::analyzeNotificationXML'."\r\n";
+		$message .= '#### Version Prestashop : ' . _PS_VERSION_;
+		# ---
+		$this->HipayLog($message);
+
 		if (version_compare(_PS_VERSION_, '1.5.0.0', '>='))
+		{
+			# LOG
+			$this->HipayLog('#### ID Panier : ' . (int)$id_cart."\r\n");
+			# ---
 			Context::getContext()->cart = new Cart((int)$id_cart);
+		}			
 
 		$cart = new Cart((int)$id_cart);
+
+		# LOG
+		$message = '#### TOKEN : ' . Tools::getValue('token')."\r\n";
+		$message .= '#### SECURE KEY : ' . $cart->secure_key."\r\n";
+		$message .= '#### HIPAY SALT : ' . Configuration::get('HIPAY_SALT')."\r\n";
+		$message .= '#### CLE ENCRYPTE : ' . Tools::encrypt($cart->id.$cart->secure_key.Configuration::get('HIPAY_SALT'))."\r\n";
+		# ---
+		$this->HipayLog($message);
 		if (Tools::encrypt($cart->id.$cart->secure_key.Configuration::get('HIPAY_SALT')) != Tools::getValue('token'))
-			file_put_contents('logs'.Configuration::get('HIPAY_UNIQID').'.txt', '['.date('Y-m-d H:i:s').'] Token error: '.htmlentities($_POST['xml'])."\n", FILE_APPEND);
-		else
 		{
-			if (trim($operation) == 'authorization' && trim(strtolower($status)) == 'ok')
+			# LOG
+			$this->HipayLog('#### TOKEN = CLE : NOK'."\r\n");
+			# ---
+			file_put_contents('logs'.Configuration::get('HIPAY_UNIQID').'.txt', '['.date('Y-m-d H:i:s').'] Token error: '.htmlentities($_POST['xml'])."\n", FILE_APPEND);
+		} else {
+
+			# LOG
+			$message = '#### Opération : ' . trim($operation) ."\r\n";
+			$message .= '#### Status : ' . trim(strtolower($status)) ."\r\n";
+			# ---
+			$this->HipayLog($message);
+			if (trim($operation) == 'authorization' && trim(strtolower($status)) == 'waiting')
 			{
-				// Authorization OK
+				// Authorization WAITING
 				$orderMessage = $operation.": ".$status."\ndate: ".$date." ".$time."\ntransaction: ".$transid."\namount: ".(float)$amount." ".$currency."\nid_cart: ".(int)$id_cart;
-				$this->_createAuthorizationOrderState();
-				$this->validateOrder((int)$id_cart, Configuration::get('HIPAY_AUTHORIZATION_OS'), (float)$amount, $this->displayName, $orderMessage, array(), NULL, false, $cart->secure_key);
+				//$this->_createAuthorizationOrderState();
+				$this->validateOrder((int)$id_cart, Configuration::get('HIPAY_WAITINGPAYMENT_OS'), (float)$amount, $this->displayName, $orderMessage, array(), NULL, false, $cart->secure_key);
+				
+				# LOG
+				$this->HipayLog('######## AW - création Commande / status : ' . (int)Configuration::get('HIPAY_WAITINGPAYMENT_OS') . "\r\n");
+				# ---	
+
+			}else if (trim($operation) == 'authorization' && trim(strtolower($status)) == 'ok')
+			{
+				// vérification si commande existante
+				$id_order = Order::getOrderByCartId((int)$id_cart);	
+
+				# LOG
+				$this->HipayLog('######## AOK - ID Commande : ' . ($id_order ? $id_order:'Pas de commande') . "\r\n");
+				# ---
+
+				if ($id_order !== false)
+				{
+					// change statut si commande en attente de paiement
+					$order = new Order((int)$id_order);
+					if ((int)$order->getCurrentState() == (int)Configuration::get('HIPAY_WAITINGPAYMENT_OS'))
+					{
+						// on affecte à la commande au statut paiement autorisé par HiPay
+						$statut_id = Configuration::get('HIPAY_AUTHORIZATION_OS');
+						$order_history = new OrderHistory();
+						$order_history->id_order = $id_order;
+						$order_history->changeIdOrderState($statut_id, $id_order);
+						$order_history->addWithemail();
+						# LOG
+						$this->HipayLog('######## AOK - Historique Commande / Change status : ' . (int)Configuration::get('HIPAY_AUTHORIZATION_OS') . "\r\n");
+						# ---
+					}
+				}else{
+					// on revérifie si la commande n'existe pas au cas où la capture soit arrivée avant
+					// sinon on ne fait rien
+					$id_order = Order::getOrderByCartId((int)$id_cart);				
+					if ($id_order === false)
+					{
+						// Authorization OK
+						$orderMessage = $operation.": ".$status."\ndate: ".$date." ".$time."\ntransaction: ".$transid."\namount: ".(float)$amount." ".$currency."\nid_cart: ".(int)$id_cart;
+						//$this->_createAuthorizationOrderState();
+						$this->validateOrder((int)$id_cart, Configuration::get('HIPAY_AUTHORIZATION_OS'), (float)$amount, $this->displayName, $orderMessage, array(), NULL, false, $cart->secure_key);
+
+						# LOG
+						$this->HipayLog('######## AOK - création Commande / status : ' . (int)Configuration::get('HIPAY_AUTHORIZATION_OS') . "\r\n");
+						# ---						
+
+					}
+				}
 			}
 			else if (trim($operation) == 'capture' && trim(strtolower($status)) == 'ok')
 			{
 				// Capture OK
 				$orderMessage = $operation.": ".$status."\ndate: ".$date." ".$time."\ntransaction: ".$transid."\namount: ".(float)$amount." ".$currency."\nid_cart: ".(int)$id_cart;
 				$id_order = Order::getOrderByCartId((int)$id_cart);
+
+				# LOG
+				$this->HipayLog('######## COK - ID Commande : ' . ($id_order ? $id_order:'Pas de commande') . "\r\n");
+				# ---
+				
 				if ($id_order !== false)
 				{
+					# LOG
+					$this->HipayLog('######## COK - id_order existant' . "\r\n");
+					# ---
 					$order = new Order((int)$id_order);
-					if ((int)$order->getCurrentState() == (int)Configuration::get('HIPAY_AUTHORIZATION_OS'))
+					# LOG
+					$this->HipayLog('######## COK - objet order loadé' . "\r\n");
+					# ---
+					// si la commande est au statut Autorisation ok ou en attente de paiement 
+					// on change le statut en paiement accepté
+					if ((int)$order->getCurrentState() == (int)Configuration::get('HIPAY_AUTHORIZATION_OS')
+						|| (int)$order->getCurrentState() == (int)Configuration::get('HIPAY_WAITINGPAYMENT_OS'))
 					{
-						$orderHistory = new OrderHistory();
-						$orderHistory->id_order = (int)$order->id;
-						$orderHistory->changeIdOrderState((int)Configuration::get('PS_OS_PAYMENT'), (int)$id_order);
-						$orderHistory->addWithemail();
+						$statut_id = Configuration::get('PS_OS_PAYMENT');
+						$order_history = new OrderHistory();
+						$order_history->id_order = $id_order;
+						$order_history->changeIdOrderState($statut_id, $id_order);
+
+						$order_history->addWithemail();
+
+						# LOG
+						$this->HipayLog('######## COK - Historique Commande / Change status : ' . (int)Configuration::get('PS_OS_PAYMENT') . "\r\n");
+						# ---
+
 					}
 				}
 				else
 				{
 					$this->validateOrder((int)$id_cart, Configuration::get('PS_OS_PAYMENT'), (float)$amount, $this->displayName, $orderMessage, array(), NULL, false, $cart->secure_key);
-				}
 
-				Configuration::updateValue('HIPAY_CONFIGURATION_OK', true);
+					# LOG
+					$this->HipayLog('######## COK - création Commande / status : ' . (int)Configuration::get('PS_OS_PAYMENT') . "\r\n");
+					# ---	
+				}
+				// Commande que prestashop lance mais n'a aucune incidence dans le module...
+				// Ajouté en commentaire
+				// Configuration::updateValue('HIPAY_CONFIGURATION_OK', true);
 			}
 			else if (trim($operation) == 'capture' && trim(strtolower($status)) == 'nok')
 			{
 				// Capture NOK
 				$id_order = Order::getOrderByCartId((int)$id_cart);
+
+				# LOG
+				$this->HipayLog('######## CNOK - ID Commande : ' . ($id_order ? $id_order:'Pas de commande') . "\r\n");
+				# ---
+
 				if ($id_order !== false)
 				{
 					$order = new Order((int)$id_order);
 					if ((int)$order->getCurrentState() == (int)Configuration::get('HIPAY_AUTHORIZATION_OS'))
 					{
-						$orderHistory = new OrderHistory();
-						$orderHistory->id_order = (int)$order->id;
-						$orderHistory->changeIdOrderState((int)Configuration::get('PS_OS_ERROR'), (int)$id_order);
-						$orderHistory->addWithemail();
+						$statut_id = Configuration::get('PS_OS_ERROR');
+						$order_history = new OrderHistory();
+						$order_history->id_order = $id_order;
+						$order_history->changeIdOrderState($statut_id, $id_order);
+
+						$order_history->addWithemail();
+
+						# LOG
+						$this->HipayLog('######## CNOK - Historique Commande / Change status : ' . (int)Configuration::get('PS_OS_ERROR') . "\r\n");
+						# ---
 					}
 				}
 			}
@@ -441,15 +638,30 @@ class Hipay extends PaymentModule
 					die(Tools::displayError());
 
 				$order = new Order((int)($id_order));
+
 				if (!$order->valid OR $order->getCurrentState() === Configuration::get('PS_OS_REFUND'))
 					die(Tools::displayError());
 
-				$orderHistory = new OrderHistory();
-				$orderHistory->id_order = (int)($order->id);
-				$orderHistory->changeIdOrderState((int)(Configuration::get('PS_OS_REFUND')), (int)($id_order));
-				$orderHistory->addWithemail();
+				$statut_id = Configuration::get('PS_OS_REFUND');
+				$order_history = new OrderHistory();
+				$order_history->id_order = $id_order;
+				$order_history->changeIdOrderState($statut_id, $id_order);
+
+				$order_history->addWithemail();
+				
+				# LOG
+				$$this->HipayLog('######## ROK - Historique Commande / Change status : ' . (int)Configuration::get('PS_OS_REFUND') . "\r\n");
+				# ---
 			}
 		}
+		#
+		# Patch LOG Pour les erreurs 500
+		#
+		$message = '# Date Fin Validation - ' . date("d/m/Y H:i:s") ."\r\n";
+		$message .= '######################################'."\r\n";
+		$this->HipayLog($message);
+		# ---------------------------------------------------------
+		return true;
 	}
 
 	/**
@@ -481,9 +693,20 @@ class Hipay extends PaymentModule
 	{
 		global $currentIndex;
 		$warnings = '';
+		$shopId = false;
 
 		if ($currentIndex == '' && version_compare(_PS_VERSION_, '1.5.0.0', '>='))
+		{
 			$currentIndex = 'index.php?controller='.Tools::safeOutput(Tools::getValue('controller'));
+		}
+		#
+		# Patch Gestion de la multiboutique si PS >= 1.5.0.0
+		# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+		#
+		if(version_compare(_PS_VERSION_, '1.5.0.0', '>=')){			
+			$shopId = Context::getContext()->shop->id;			
+		}
+		# -------------------------------------------------
 		$currencies = DB::getInstance()->ExecuteS('SELECT c.iso_code, c.name, c.sign FROM '._DB_PREFIX_.'currency c');
 
 		if (Tools::isSubmit('submitHipayAZ'))
@@ -497,8 +720,17 @@ class Hipay extends PaymentModule
 					Configuration::updateValue('HIPAY_AZ_'.$id, 'ko');
 				}
 			}
-			Db::getInstance()->Execute('DELETE FROM `'._DB_PREFIX_.'module_country` WHERE `id_module` = '.(int)$this->id);
-
+			#
+			# Patch Prise en compte du shop id si PS >= 1.5.0.0
+			# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+			#
+			$reqZone = 'DELETE FROM `'._DB_PREFIX_.'module_country` WHERE `id_module` = '.(int)$this->id;
+			if($shopId)
+			{
+				$reqZone .= ' AND `id_shop` = '.(int)$shopId;
+			}
+			Db::getInstance()->Execute($reqZone);			
+			# -------------------------------------------------
 			// Add the new configuration zones
 			foreach ($_POST as $key => $val)
 			{
@@ -508,9 +740,16 @@ class Hipay extends PaymentModule
 			$request = 'SELECT id_country FROM '._DB_PREFIX_.'country WHERE ';
 			$results = Db::getInstance()->ExecuteS($request.$this->getRequestZones('id_zone'));
 
-			foreach ($results as $rowValues)
-				Db::getInstance()->Execute('INSERT INTO '._DB_PREFIX_.'module_country VALUE('.(int)$this->id.', '.(version_compare(_PS_VERSION_, '1.5.0.0', '>=') ?  Context::getContext()->shop->id.',' : '').' '.(int)$rowValues['id_country'].')');
-
+			#
+			# Patch Prise en compte du shop id si PS >= 1.5.0.0
+			# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+			#
+			foreach ($results as $rowValues){
+				Db::getInstance()->Execute('
+					INSERT INTO '._DB_PREFIX_.'module_country VALUE 
+					('.(int)$this->id.', '.($shopId !== false ?  $shopId.',' : '').' '.(int)$rowValues['id_country'].')');
+			}
+			# -------------------------------------------------
 		}
 		elseif (Tools::isSubmit('submitHipay'))
 		{
@@ -592,6 +831,7 @@ class Hipay extends PaymentModule
 			$account_created = $this->processAccountCreation($form_errors);
 
 		$link = Tools::safeOutput($_SERVER['REQUEST_URI']);
+
 		$form = '
 		<style>
 			.hipay_label {float:none;font-weight:normal;padding:0;text-align:left;width:100%;line-height:30px}
@@ -1119,5 +1359,17 @@ class Hipay extends PaymentModule
 	{
 		$row = Db::getInstance()->getRow($query);
 		return array_shift($row);
+	}
+	#
+	# Patch pour logger la validation.php - appel entre HiPay et Prestashop
+	# Le 16/11/2015 par Johan PROTIN (jprotin at hipay dot com)
+	#
+	private function HipayLog($msg){
+		if(HIPAY_LOG){
+			$fp = fopen(_PS_ROOT_DIR_.'/log/hipay/hipaylogs.txt','a+');
+	        fseek($fp,SEEK_END);
+	        fputs($fp,$msg);
+	        fclose($fp);
+		}        
 	}
 }
