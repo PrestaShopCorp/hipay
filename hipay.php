@@ -42,6 +42,7 @@ if (!defined('_PS_VERSION_'))
 define('DEV', 0);
 define('PROD', 1);
 define('HIPAY_LOG', 0);
+define('HIPAY_VERSION', '1.6.11');
 
 class Hipay extends PaymentModule
 {
@@ -57,7 +58,7 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = '1.6.10';
+		$this->version = HIPAY_VERSION;
 		$this->module_key = 'ab188f639335535838c7ee492a2e89f8';
 		$this->is_eu_compatible = 1;
 
@@ -159,7 +160,7 @@ class Hipay extends PaymentModule
 				if (Tools::strtolower($language['iso_code']) == 'fr')
 					$os->name[(int)$language['id_lang']] = 'En attente de paiement HiPay';
 				else
-					$os->name[(int)$language['id_lang']] = 'En attente de paiement HiPay';
+					$os->name[(int)$language['id_lang']] = 'Pending payment HiPay';
 			$os->color = '#FAAC58';
 			$os->hidden = false;
 			$os->send_email = false;
@@ -172,13 +173,14 @@ class Hipay extends PaymentModule
 				copy(dirname(__FILE__).'/logo.gif', dirname(__FILE__).'/../../img/os/'.(int)$os->id.'.gif');
 			}
 			else{
-				$object->upgrade_detail['1.6.9'][] = 'Erreur sur la mise à jour du statut de commande - En attente de paiement HiPay.';
+				// trasnlate - Erreur sur la mise à jour du statut de commande - En attente de paiement HiPay.
+				$object->upgrade_detail[HIPAY_VERSION][] = $this->l('Error on the order status update - Pending Payment HiPay.');
 				return false;
 			}
 		}
 		if (!Configuration::get('HIPAY_VERSION'))
 		{
-			Configuration::updateValue('HIPAY_VERSION', '1.6.9');
+			Configuration::updateValue('HIPAY_VERSION', HIPAY_VERSION);
 		}
 		return true;
 	}
@@ -940,13 +942,13 @@ class Hipay extends PaymentModule
 			<tr>
 				<td></td>
 				<td class="tab2">
-				<p>'.$this->l('Ce que vous devez faire:').'</p>
+				<p>'.$this->l('What you should do:').'</p>
 				<ul>
-					<li>'.$this->l('Paramétrez vos informations de compte(id compte, mot de passe et id site).').'</li>
-					<li>'.$this->l('Sélectionnez la catégorie et la tranche d\'âge.').'</li>
-					<li>'.$this->l('Paramétrez une adresse email pour les notifications de paiement.').'</li>
+					<li>'.$this->l('Set your account information (id account, password and id website).').'</li>
+					<li>'.$this->l('Select the category and age group.').'</li>
+					<li>'.$this->l('Set up an email address for notifications of payment.').'</li>
 				</ul>
-				<p>'.$this->l('Pour plus d\'informations, allez sur l\'onglet Comment configurer Hipay.').'</p>
+				<p>'.$this->l('For more information , go on the tab " how to set Hipay ".').'</p>
 				</td>
 			</tr>
 			
@@ -966,15 +968,15 @@ class Hipay extends PaymentModule
 						<td class="hipay_prod hipay_block" style="padding-left:10px">
 							<label class="hipay_label" for="HIPAY_ACCOUNT_'.$currency['iso_code'].'">'.$this->l('Account number').' <a href="../modules/'.$this->name.'/screenshots/accountnumber.png" target="_blank"><img src="../modules/'.$this->name.'/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_ACCOUNT_'.$currency['iso_code'].'" name="HIPAY_ACCOUNT_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code'], Configuration::get('HIPAY_ACCOUNT_'.$currency['iso_code']))).'" />
-							<br /><p style="text-align: left !important;"><i>'.$this->l('L\'ID du compte Hipay sur lequel ce site est enregistré.C\'est votre compte principal.').'<br /> <span style="color:red">'.$this->l('N\' utilisez pas votre id membre ici!.').'</span></i></p>
+							<br /><p style="text-align: left !important;"><i>'.$this->l('The Hipay account ID where the website is registered. This is your main account.').'<br /> <span style="color:red">'.$this->l('Do not use your member Id here!.').'</span></i></p>
 							<label class="hipay_label" for="HIPAY_PASSWORD_'.$currency['iso_code'].'">'.$this->l('Merchant password').' <a href="../modules/'.$this->name.'/screenshots/merchantpassword.png" target="_blank"><img src="../modules/'.$this->name.'/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_PASSWORD_'.$currency['iso_code'].'" name="HIPAY_PASSWORD_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_PASSWORD_'.$currency['iso_code'], Configuration::get('HIPAY_PASSWORD_'.$currency['iso_code']))).'" />
-							<br /><p style="text-align: left !important;"><i>'.$this->l('Le mot de passe du compte marchand sur lequel ce site est enregistré. (ce n\'est pas le mot de passe d\'identification!).').'<br />
-							<span style="color:red">'.$this->l('Pour créer un nouveau mot de passe marchand: identifiez-vous sur votre compte Hipay, allez sur Boutons Paiement où vous pouvez trouver la liste des sites enregistrés.').' '.$this->l('Cliquez sur Informations Site du site concerné.').' '.$this->l('Entrez votre mot de passe marchand et cliquez sur confirmer.').' '.$this->l('N\'oubliez pas d\'entrer également votre nouveau mot de passe ici.').'</span></i></p>
+							<br /><p style="text-align: left !important;"><i>'.$this->l('The password of the account on which the merchant website is registered.( this is not the ID password ).').'<br />
+							<span style="color:red">'.$this->l('To create a new merchant password: Log in to your Hipay account, go to Payment Buttons where you can find the list of registered sites.').' '.$this->l('Click information website of the website concerned.').' '.$this->l('Enter your merchant password and click confirm').' '.$this->l('Remember to also enter your new password here.').'</span></i></p>
 							<label class="hipay_label" for="HIPAY_SITEID_'.$currency['iso_code'].'">'.$this->l('Site ID').' <a href="../modules/'.$this->name.'/screenshots/siteid.png" target="_blank"><img src="../modules/'.$this->name.'/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_SITEID_'.$currency['iso_code'].'" name="HIPAY_SITEID_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_SITEID_'.$currency['iso_code'], Configuration::get('HIPAY_SITEID_'.$currency['iso_code']))).'" />
-							<br /><p style="text-align: left !important;"><i>'.$this->l('ID du site sélectionné.').'<br />
-							<span style="color:red">'.$this->l('Pour obtenir une ID site, enregistrez votre boutique sur le compte Hipay correspondant.').' '.$this->l('Vous pouvez trouver cette option sur votre compte Hipay dans la rubrique Boutons de Paiements.').'</span></i></p>';
+							<br /><p style="text-align: left !important;"><i>'.$this->l('Website ID selected.').'<br />
+							<span style="color:red">'.$this->l('For a website ID, register your store on the corresponding HiPay account.').' '.$this->l('You can find this option on your HiPay statement under Payments buttons.').'</span></i></p>';
 
 			if ($ping && ($hipaySiteId = (int)Configuration::get('HIPAY_SITEID_'.$currency['iso_code'])) && ($hipayAccountId = (int)Configuration::get('HIPAY_ACCOUNT_'.$currency['iso_code'])))
 			{
@@ -982,7 +984,7 @@ class Hipay extends PaymentModule
 							<select id="HIPAY_CATEGORY_'.$currency['iso_code'].'" name="HIPAY_CATEGORY_'.$currency['iso_code'].'">';
 				foreach ($this->getHipayCategories($hipaySiteId, $hipayAccountId) as $id => $name)
 					$form.= '	<option value="'.(int)$id.'" '.(Tools::getValue('HIPAY_CATEGORY_'.$currency['iso_code'], Configuration::get('HIPAY_CATEGORY_'.$currency['iso_code'])) == $id ? 'selected="selected"' : '').'>'.htmlentities($name, ENT_COMPAT, 'UTF-8').'</option>';
-				$form .= '	</select><br /><p style="text-align: left !important;"><i>'.$this->l('Choisissez le type de commande.').'<br /><span style="color:red">'.$this->l('Une liste de catégories (basée sur le choix dutype de businessetla catégorie de votre site sur Hipay).').'<br />'.$this->l('1. Entrez votre ID site').'<br />'.$this->l('2. Cliquez sur Sauvegarder Paramètres').'<br />'.$this->l('3. La listeType de commande sera mise à jour.').'<br />'.$this->l('4. Choisissez la catégorie correspondante et cliquez sur Sauvegarder Paramètres à nouveau.').'</span></i></p>';
+				$form .= '	</select><br /><p style="text-align: left !important;"><i>'.$this->l('Choose the order type.').'<br /><span style="color:red">'.$this->l('A list of categories (based on the choice of business type and category of your site on Hipay ).').'<br />'.$this->l('1. Enter your website ID').'<br />'.$this->l('2. Click Save Settings').'<br />'.$this->l('The list " Order Type " will be updated.').'<br />'.$this->l('4. Choose the appropriate category and click Save Settings again.').'</span></i></p>';
 			}
 
 			$form .= '	</td>
