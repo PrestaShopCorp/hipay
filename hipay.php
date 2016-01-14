@@ -42,7 +42,6 @@ if (!defined('_PS_VERSION_'))
 define('DEV', 0);
 define('PROD', 1);
 define('HIPAY_LOG', 0);
-define('HIPAY_VERSION', '1.6.11');
 
 class Hipay extends PaymentModule
 {
@@ -58,7 +57,7 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = HIPAY_VERSION;
+		$this->version = '1.6.12';
 		$this->module_key = 'ab188f639335535838c7ee492a2e89f8';
 		$this->is_eu_compatible = 1;
 
@@ -174,13 +173,13 @@ class Hipay extends PaymentModule
 			}
 			else{
 				// trasnlate - Erreur sur la mise à jour du statut de commande - En attente de paiement HiPay.
-				$object->upgrade_detail[HIPAY_VERSION][] = $this->l('Error on the order status update - Pending Payment HiPay.');
+				$object->upgrade_detail[$this->version][] = $this->l('Error on the order status update - Pending Payment HiPay.');
 				return false;
 			}
 		}
 		if (!Configuration::get('HIPAY_VERSION'))
 		{
-			Configuration::updateValue('HIPAY_VERSION', HIPAY_VERSION);
+			Configuration::updateValue('HIPAY_VERSION', $this->version);
 		}
 		return true;
 	}
