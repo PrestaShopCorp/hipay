@@ -57,7 +57,7 @@ class Hipay extends PaymentModule
 	{
 		$this->name = 'hipay';
 		$this->tab = 'payments_gateways';
-		$this->version = '1.6.12';
+		$this->version = '1.6.13';
 		$this->module_key = 'ab188f639335535838c7ee492a2e89f8';
 		$this->is_eu_compatible = 1;
 
