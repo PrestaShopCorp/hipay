@@ -40,7 +40,6 @@ class HipayValidationModuleFrontController extends ModuleFrontController
 
 	public function initContent()
 	{
-		parent::initContent();
 		$hipay = Module::getInstanceByName('hipay');
 		if (Validate::isLoadedObject($hipay)){
 			if(method_exists ( $hipay, 'validation' )){
