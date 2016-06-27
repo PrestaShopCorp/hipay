@@ -960,7 +960,7 @@ class Hipay extends PaymentModule
 	                            <div class="col-md-12 col-xs-12">
 	                                <h4>'.$this->l('3 simple steps:').'</h4>
 	                                <ol>
-	                                    <li>'.$this->l('Download the HiPay free module').'</li>
+	                                    <li>'.$this->l('Download the HiPay free module', 'hipay-15-16').'</li>
 	                                    <li>'.$this->l('Finalize your PrestaShop Payments by HiPay registration before you reach €2,500 on your account.').'</li>
 	                                    <li>'.$this->l('Easily collect and transfer your money from your PrestaShop Payments by HiPay account to your own bank account.').'</li>
 	                                </ol>
