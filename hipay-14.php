@@ -54,7 +54,7 @@ class Hipay extends PaymentModule
 	const WS_URL = 'http://api.prestashop.com/partner/hipay/hipay.php';
 
 	public static $available_rates_links = array('EN', 'FR');
-    const PAYMENT_FEED_BASE_LINK = 'https://www.prestashop.com/download/pdf/pspayments/Fees_PSpayments_';
+	const PAYMENT_FEED_BASE_LINK = 'https://www.prestashop.com/download/pdf/pspayments/Fees_PSpayments_';
 
 	public function __construct()
 	{
