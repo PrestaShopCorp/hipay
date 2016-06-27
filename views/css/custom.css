@@ -1,0 +1,53 @@
+.bootstrap .nav-tabs > li.active > a, .bootstrap .nav-tabs > li.active > a:hover, .bootstrap .nav-tabs > li.active > a:focus {
+    outline: medium none;
+}
+
+.clear {
+    float: left;
+    margin-bottom: 15px;
+    margin-right: 25px;
+    width: calc(50% - 25px);
+}
+#payment-logo {
+    max-height: 52px;
+}
+
+#hipay_step1 .panel {
+    display: table;
+}
+
+#hipay_step2 form {
+    padding: 20px;
+    -webkit-border-radius: 6px;
+    -moz-border-radius: 6px;
+    border-radius: 6px;
+}
+
+#hipay_step2 form table th, #hipay_step2 form table td {
+    border: 1px solid #dddddd;
+    padding: 15px;
+}
+
+.hipay_prod.hipay_block {
+    background-color: #ebebeb;
+}
+
+.process-icon-help {
+    color: #005a94;
+    float: right;
+    font-size: 16px;
+    height: 15px;
+    margin-left: 10px;
+    width: 15px;
+}
+
+#HIPAY_RATING {
+    max-width: 300px;
+}
+
+@media screen and (max-width: 768px) {
+    .clear {
+        margin-right: 0;
+        width: 100%;
+    }
+}
