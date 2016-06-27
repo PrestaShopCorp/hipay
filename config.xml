@@ -2,9 +2,9 @@
         <module>
             <name>hipay</name>
             <displayName><![CDATA[HiPay]]></displayName>
-            <version><![CDATA[1.6.13]]></version>
+            <version><![CDATA[1.6.14]]></version>
             <description><![CDATA[Secure payement with Visa, Mastercard and European solutions.]]></description>
-            <author><![CDATA[PrestaShop]]></author>
+            <author><![CDATA[HiPay]]></author>
             <tab><![CDATA[payments_gateways]]></tab>
             <is_configurable>1</is_configurable>
             <need_instance>1</need_instance>
