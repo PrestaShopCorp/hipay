@@ -17,7 +17,7 @@
 if (!defined('_PS_VERSION_'))
     exit;
 
-function upgrade_module_1_6_14($object)
+function upgrade_module_1_6_15($object)
 {
 	/* Update hooks */
 	$object->registerHook('displayBackOfficeHeader');
