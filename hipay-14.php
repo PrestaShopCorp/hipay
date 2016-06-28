@@ -37,14 +37,16 @@ class Hipay extends PaymentModule
 	public function __construct()
 	{
 		$this->name = 'hipay';
-		$this->tab = 'payments_gateways';
-		$this->version = '1.6.14';
-		$this->module_key = 'ab188f639335535838c7ee492a2e89f8';
-		$this->is_eu_compatible = 1;
-
+	    $this->tab = 'payments_gateways';
+	    $this->version = '1.6.14';
+	    $this->author = 'HiPay';
+	    $this->need_instance = 1;
+	    $this->ps_versions_compliancy = array('min' => '1.4', 'max' => _PS_VERSION_); 
+	    $this->bootstrap = true;
+	    $this->module_key = 'ab188f639335535838c7ee492a2e89f8';
+	    $this->is_eu_compatible = 1;
 		$this->currencies = true;
 		$this->currencies_mode = 'radio';
-		$this->author = 'HiPay';
 
 		parent::__construct();
 
