@@ -66,7 +66,7 @@ class Hipay extends PaymentModule
 
 		$this->currencies = true;
 		$this->currencies_mode = 'radio';
-		$this->author = 'PrestaShop';
+		$this->author = 'HiPay';
 
 		parent::__construct();
 
@@ -1006,14 +1006,14 @@ class Hipay extends PaymentModule
 			$form .= '<tr>
 						<td class="hipay_block"><b>'.$this->l('Configuration in').' '.$currency['name'].' '.$currency['sign'].'</b></td>
 						<td class="hipay_prod hipay_block" style="padding-left:10px">
-							<label class="hipay_label" for="HIPAY_ACCOUNT_'.$currency['iso_code'].'">'.$this->l('Account number').' <a href="../modules/'.$this->name.'/screenshots/accountnumber.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
+							<label class="hipay_label" for="HIPAY_ACCOUNT_'.$currency['iso_code'].'">'.$this->l('Account number').' <a href="../modules/'.$this->name.'/views/img/screenshots/accountnumber.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_ACCOUNT_'.$currency['iso_code'].'" name="HIPAY_ACCOUNT_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_ACCOUNT_'.$currency['iso_code'], Configuration::get('HIPAY_ACCOUNT_'.$currency['iso_code']))).'" />
 							<br /><p style="text-align: left !important;"><i>'.$this->l('The Hipay account ID where the website is registered. This is your main account.').'<br /> <span style="color:red">'.$this->l('Do not use your member Id here!.').'</span></i></p>
-							<label class="hipay_label" for="HIPAY_PASSWORD_'.$currency['iso_code'].'">'.$this->l('Merchant password').' <a href="../modules/'.$this->name.'/screenshots/merchantpassword.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
+							<label class="hipay_label" for="HIPAY_PASSWORD_'.$currency['iso_code'].'">'.$this->l('Merchant password').' <a href="../modules/'.$this->name.'/views/img/screenshots/merchantpassword.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_PASSWORD_'.$currency['iso_code'].'" name="HIPAY_PASSWORD_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_PASSWORD_'.$currency['iso_code'], Configuration::get('HIPAY_PASSWORD_'.$currency['iso_code']))).'" />
 							<br /><p style="text-align: left !important;"><i>'.$this->l('The password of the account on which the merchant website is registered.( this is not the ID password ).').'<br />
 							<span style="color:red">'.$this->l('To create a new merchant password: Log in to your Hipay account, go to Payment Buttons where you can find the list of registered sites.').' '.$this->l('Click information website of the website concerned.').' '.$this->l('Enter your merchant password and click confirm').' '.$this->l('Remember to also enter your new password here.').'</span></i></p>
-							<label class="hipay_label" for="HIPAY_SITEID_'.$currency['iso_code'].'">'.$this->l('Site ID').' <a href="../modules/'.$this->name.'/screenshots/siteid.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
+							<label class="hipay_label" for="HIPAY_SITEID_'.$currency['iso_code'].'">'.$this->l('Site ID').' <a href="../modules/'.$this->name.'/views/img/screenshots/siteid.png" target="_blank"><img src="../modules/'.$this->name.'/views/img/help.png" class="hipay_help" /></a></label><br />
 							<input type="text" id="HIPAY_SITEID_'.$currency['iso_code'].'" name="HIPAY_SITEID_'.$currency['iso_code'].'" value="'.Tools::safeOutput(Tools::getValue('HIPAY_SITEID_'.$currency['iso_code'], Configuration::get('HIPAY_SITEID_'.$currency['iso_code']))).'" />
 							<br /><p style="text-align: left !important;"><i>'.$this->l('Website ID selected.').'<br />
 							<span style="color:red">'.$this->l('For a website ID, register your store on the corresponding HiPay account.').' '.$this->l('You can find this option on your HiPay statement under Payments buttons.').'</span></i></p>';
